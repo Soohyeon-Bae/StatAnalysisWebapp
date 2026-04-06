@@ -205,7 +205,7 @@ def run_did_analysis(
     if work["_time_idx"].isna().all():
         raise AnalysisError("시간변수를 해석하지 못했습니다. 연도/월/날짜처럼 정렬 가능한 변수를 선택해주세요.")
     intervention_idx = _find_intervention_idx(time_map, intervention_value)
-    work["treated"] = (df[treatment].astype("string") == str(treated_value)).astype(float)
+    work["treated"] = (df[treatment].astype("string").str.strip() == str(treated_value)).strip().astype(float)
     work["post"] = (work["_time_idx"] >= intervention_idx).astype(float)
     if unit_var:
         work[unit_var] = df[unit_var].astype("string")
@@ -300,7 +300,7 @@ def run_event_study_analysis(
     time_idx, time_map = _ordered_time_codes(df[time_var])
     work["_time_idx"] = time_idx
     intervention_idx = _find_intervention_idx(time_map, intervention_value)
-    work["treated"] = (df[treatment].astype("string") == str(treated_value)).astype(float)
+    work["treated"] = (df[treatment].astype("string").str.strip() == str(treated_value)).strip().astype(float)
     work["rel_period"] = work["_time_idx"] - intervention_idx
     work["rel_period"] = work["rel_period"].clip(lower=-window_pre, upper=window_post)
     if unit_var:
@@ -620,25 +620,36 @@ def _formula_term(col: str, col_type: str) -> str:
 
 def _ordered_time_codes(series: pd.Series) -> tuple[pd.Series, dict[Any, int]]:
     s = series.copy()
+
+    # 1) 이미 datetime dtype이면 datetime으로 처리
     if pd.api.types.is_datetime64_any_dtype(s):
         parsed = pd.to_datetime(s, errors="coerce")
         uniques = sorted(parsed.dropna().unique())
         mapping = {u: i for i, u in enumerate(uniques)}
         codes = parsed.map(mapping)
         return codes.astype(float), mapping
-    parsed_dt = pd.to_datetime(s, errors="coerce")
-    if parsed_dt.notna().mean() >= 0.8:
-        uniques = sorted(parsed_dt.dropna().unique())
-        mapping = {u: i for i, u in enumerate(uniques)}
-        codes = parsed_dt.map(mapping)
-        return codes.astype(float), mapping
+
+    # 2) 숫자형/0-1형은 datetime보다 먼저 numeric으로 처리
     numeric = pd.to_numeric(s, errors="coerce")
     if numeric.notna().mean() >= 0.8:
         uniques = sorted(pd.Series(numeric.dropna().unique()).tolist())
         mapping = {u: i for i, u in enumerate(uniques)}
         codes = numeric.map(mapping)
         return codes.astype(float), mapping
-    string = s.astype("string")
+
+    # 3) 숫자가 아니고, 컬럼명이 date/time 계열일 때만 datetime 시도
+    col_name = str(series.name).lower() if series.name is not None else ""
+    hint_keywords = ["date", "time", "day", "month", "year", "일자", "날짜", "시점", "연월"]
+    if any(k in col_name for k in hint_keywords):
+        parsed_dt = pd.to_datetime(s, errors="coerce")
+        if parsed_dt.notna().mean() >= 0.8:
+            uniques = sorted(parsed_dt.dropna().unique())
+            mapping = {u: i for i, u in enumerate(uniques)}
+            codes = parsed_dt.map(mapping)
+            return codes.astype(float), mapping
+
+    # 4) 나머지는 문자열 범주 순서로 처리
+    string = s.astype("string").str.strip()
     uniques = sorted(string.dropna().unique().tolist())
     mapping = {u: i for i, u in enumerate(uniques)}
     codes = string.map(mapping)
