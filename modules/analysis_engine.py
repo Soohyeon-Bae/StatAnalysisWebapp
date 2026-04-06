@@ -646,19 +646,22 @@ def _ordered_time_codes(series: pd.Series) -> tuple[pd.Series, dict[Any, int]]:
 
 
 def _find_intervention_idx(mapping: dict[Any, int], intervention_value: Any) -> int:
-    if intervention_value in mapping:
-        return int(mapping[intervention_value])
+    # 문자열 기준 비교 (가장 안정적)
+    target = str(intervention_value).strip()
     for k, v in mapping.items():
-        if str(k) == str(intervention_value):
+        # 문자열 비교
+        if str(k).strip() == target:
             return int(v)
+        # 숫자 비교 (float/int 대응)
         try:
             if float(k) == float(intervention_value):
                 return int(v)
-        except Exception:
+        except:
             pass
+        # datetime 비교
         try:
             if pd.to_datetime(k, errors="coerce") == pd.to_datetime(intervention_value, errors="coerce"):
                 return int(v)
-        except Exception:
+        except:
             pass
     raise AnalysisError("개입 시점을 시간변수 값에서 찾지 못했습니다.")
