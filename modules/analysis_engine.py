@@ -205,7 +205,7 @@ def run_did_analysis(
     if work["_time_idx"].isna().all():
         raise AnalysisError("시간변수를 해석하지 못했습니다. 연도/월/날짜처럼 정렬 가능한 변수를 선택해주세요.")
     intervention_idx = _find_intervention_idx(time_map, intervention_value)
-    work["treated"] = (df[treatment].astype("string").str.strip() == str(treated_value)).strip().astype(float)
+    work["treated"] = (df[treatment].astype("string").str.strip() == str(treated_value).strip()).astype(float)
     work["post"] = (work["_time_idx"] >= intervention_idx).astype(float)
     if unit_var:
         work[unit_var] = df[unit_var].astype("string")
@@ -300,7 +300,7 @@ def run_event_study_analysis(
     time_idx, time_map = _ordered_time_codes(df[time_var])
     work["_time_idx"] = time_idx
     intervention_idx = _find_intervention_idx(time_map, intervention_value)
-    work["treated"] = (df[treatment].astype("string").str.strip() == str(treated_value)).strip().astype(float)
+    work["treated"] = (df[treatment].astype("string").str.strip() == str(treated_value).strip()).astype(float)
     work["rel_period"] = work["_time_idx"] - intervention_idx
     work["rel_period"] = work["rel_period"].clip(lower=-window_pre, upper=window_post)
     if unit_var:
