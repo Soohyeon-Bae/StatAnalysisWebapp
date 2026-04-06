@@ -76,7 +76,7 @@ def infer_type(series: pd.Series) -> str:
     if unique_count == 1:
         return "exclude"
 
-    if _looks_like_datetime(series):
+    if _looks_like_datetime(series, series.name):
         return "datetime"
 
     # numeric handling
@@ -109,7 +109,11 @@ def infer_type(series: pd.Series) -> str:
     return "categorical"
 
 
-def _looks_like_datetime(series: pd.Series) -> bool:
+def _looks_like_datetime(series: pd.Series, col_name: str) -> bool:
+
+    # 👉 컬럼 이름에 date/time 있을 때만 datetime 시도
+    if not any(k in col_name.lower() for k in ["date", "time", "day", "month", "year"]):
+        return False
     if pd.api.types.is_datetime64_any_dtype(series):
         return True
     s = series.dropna()
@@ -117,7 +121,7 @@ def _looks_like_datetime(series: pd.Series) -> bool:
         return False
     converted = pd.to_datetime(s, errors="coerce")
     return converted.notna().mean() >= 0.8
-
+    
 
 def build_profile_table(df: pd.DataFrame) -> pd.DataFrame:
     rows = []
