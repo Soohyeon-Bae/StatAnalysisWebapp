@@ -76,24 +76,24 @@ def infer_type(series: pd.Series) -> str:
     if unique_count == 1:
         return "exclude"
 
-    if _looks_like_datetime(series, series.name):
-        return "datetime"
-
-    # numeric handling
+    # 숫자 판단을 먼저
     numeric = pd.to_numeric(s, errors="coerce")
     numeric_ratio = numeric.notna().mean() if n > 0 else 0
+
     if numeric_ratio >= 0.9:
         unique_numeric = numeric.dropna().nunique()
         if unique_numeric == 2:
             return "binary"
-        # treat low-cardinality integer codes as categorical by default
         if unique_numeric <= 10:
             integer_like = ((numeric.dropna() % 1) == 0).mean() >= 0.95
             if integer_like:
                 return "categorical"
         return "continuous"
 
-    # string-ish handling
+    # datetime은 컬럼명 힌트가 있을 때만 보수적으로 판단
+    if _looks_like_datetime(series):
+        return "datetime"
+
     if unique_count == 2:
         return "binary"
 
@@ -109,19 +109,24 @@ def infer_type(series: pd.Series) -> str:
     return "categorical"
 
 
-def _looks_like_datetime(series: pd.Series, col_name: str) -> bool:
+def _looks_like_datetime(series: pd.Series) -> bool:
+    col_name = str(series.name).lower() if series.name is not None else ""
 
-    # 👉 컬럼 이름에 date/time 있을 때만 datetime 시도
-    if not any(k in col_name.lower() for k in ["date", "time", "day", "month", "year"]):
+    # 핵심: 컬럼명에 날짜/시간 힌트가 없으면 자동 datetime 추론하지 않음
+    hint_keywords = ["date", "time", "day", "month", "year", "일자", "날짜", "시점", "연월"]
+    if not any(k in col_name for k in hint_keywords):
         return False
+
     if pd.api.types.is_datetime64_any_dtype(series):
         return True
+
     s = series.dropna()
     if len(s) == 0:
         return False
+
     converted = pd.to_datetime(s, errors="coerce")
     return converted.notna().mean() >= 0.8
-    
+
 
 def build_profile_table(df: pd.DataFrame) -> pd.DataFrame:
     rows = []
