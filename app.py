@@ -240,38 +240,19 @@ with tab_data:
         )
         _show_type_legend()
 
-uploaded = st.file_uploader("CSV 또는 XLSX 파일 업로드", type=["csv", "xlsx"])
-if uploaded is not None:
-    sheet_name = None
-    if uploaded.name.lower().endswith(".xlsx"):
-        sheets = get_excel_sheet_names(uploaded)
-        sheet_name = st.selectbox("시트 선택", sheets, key="sheet_selector")
-
-    current_sig = (uploaded.name, getattr(uploaded, "size", None), sheet_name)
-    prev_sig = st.session_state.get("uploaded_signature")
-
-    if ("df" not in st.session_state) or (prev_sig != current_sig):
+    uploaded = st.file_uploader("CSV 또는 XLSX 파일 업로드", type=["csv", "xlsx"])
+    if uploaded is not None:
+        sheet_name = None
+        if uploaded.name.lower().endswith(".xlsx"):
+            sheets = get_excel_sheet_names(uploaded)
+            sheet_name = st.selectbox("시트 선택", sheets, key="sheet_selector")
         try:
             df, active_sheet = load_uploaded_file(uploaded, sheet_name)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             st.error(str(e))
             st.stop()
 
-        st.session_state["uploaded_signature"] = current_sig
-        st.session_state["selected_sheet"] = active_sheet
         _update_session_df(df)
-        st.success(f"파일 로드 완료: {uploaded.name} / sheet={active_sheet} / rows={len(df):,} / cols={len(df.columns):,}")
-    else:
-        df = st.session_state["df"]
-        active_sheet = st.session_state.get("selected_sheet")
-        st.info(f"현재 세션 데이터 사용 중 / sheet={active_sheet}")
-
-    df = st.session_state["df"]
-    st.dataframe(df.head(20), use_container_width=True)
-
-    if "policy_after" in df.columns:
-        st.success("생성된 변수: policy_after")
-        
         st.success(f"파일 로드 완료: {uploaded.name} / sheet={active_sheet} / rows={len(df):,} / cols={len(df.columns):,}")
         st.dataframe(df.head(20), use_container_width=True)
 
@@ -421,16 +402,10 @@ with tab_causal:
             cutoff = c3.number_input("사전/사후 기준값", value=default_cutoff, key="post_cutoff_num")
         st.caption("이 기능은 datetime/숫자형 시간변수를 0=사전, 1=사후의 binary 변수로 바꿔 DiD에 바로 사용할 수 있게 해줍니다.")
         if st.button("Before/After 변수 생성", key="make_post"):
-            base_df = st.session_state["df"].copy()
-            new_df = _add_policy_after(base_df, base_time, cutoff, new_post_name)
+            new_df = _add_policy_after(df, base_time, cutoff, new_post_name)
             _update_session_df(new_df)
-            st.session_state["last_generated_var"] = new_post_name
-            st.success(f"{new_post_name} 생성 완료")
+            st.success(f"{new_post_name} 생성 완료. 데이터 탭에서 타입이 binary로 들어갔는지 확인한 뒤 다시 분석하세요.")
             st.rerun()
-            if "last_generated_var" in st.session_state:
-                last_var = st.session_state["last_generated_var"]
-                if last_var in st.session_state["df"].columns:
-                    st.success(f"현재 데이터에 '{last_var}' 변수가 포함되어 있습니다.")
 
     st.markdown("### Difference-in-Differences")
     eligible_outcomes = [c for c, t in type_map.items() if t == "continuous"]
