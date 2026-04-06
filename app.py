@@ -198,10 +198,10 @@ def _add_policy_after(df: pd.DataFrame, base_time_var: str, cutoff_value, new_co
     out = df.copy()
     if pd.api.types.is_datetime64_any_dtype(out[base_time_var]) or st.session_state["type_map"].get(base_time_var) == "datetime":
         dt = _coerce_datetime(out[base_time_var])
-        out[new_col_name] = (dt >= pd.to_datetime(cutoff_value)).astype("Int64")
+        out[new_col_name] = (dt >= pd.to_datetime(cutoff_value)).astype(int)
     else:
         num = pd.to_numeric(out[base_time_var], errors="coerce")
-        out[new_col_name] = (num >= float(cutoff_value)).astype("Int64")
+        out[new_col_name] = (num >= float(cutoff_value)).astype(int)
     return out
 
 
