@@ -27,7 +27,7 @@ def load_uploaded_file(uploaded_file, sheet_name: str | None = None) -> Tuple[pd
         df = _read_csv_fallback(raw)
         active_sheet = "csv"
     else:
-        df = pd.read_excel(BytesIO(raw), sheet_name=sheet_name or 0)
+        df = pd.read_excel(BytesIO(raw), sheet_name=sheet_name or 0, dtype=object)
         active_sheet = str(sheet_name or 0)
 
     if df is None or df.empty:
@@ -42,7 +42,14 @@ def _read_csv_fallback(raw: bytes) -> pd.DataFrame:
     tried = []
     for enc in ["utf-8", "utf-8-sig", "cp949", "euc-kr", "latin1"]:
         try:
-            return pd.read_csv(BytesIO(raw), encoding=enc)
+            return pd.read_csv(BytesIO(raw), encoding=enc, dtype=object)
         except Exception as e:  # noqa: BLE001
             tried.append(f"{enc}: {e}")
     raise ValueError("CSV 인코딩을 해석하지 못했습니다. 시도한 인코딩: " + " | ".join(tried))
+
+# 숫자 자동 변환
+for col in df.columns:
+    try:
+        df[col] = pd.to_numeric(df[col])
+    except:
+        pass
